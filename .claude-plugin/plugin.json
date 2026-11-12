@@ -1,0 +1,21 @@
+{
+  "name": "linux-hardening",
+  "version": "0.1.0",
+  "description": "Scan a Linux server (Ubuntu, Debian, RHEL, Rocky, Alma, SUSE and more) against CIS, STIG, NIST 800-171, PCI-DSS, HIPAA or a Lynis audit, get a scored report, and fix only what you pick with confirmation, backups and automatic rollback",
+  "author": {
+    "name": "oklahaha"
+  },
+  "keywords": [
+    "security",
+    "hardening",
+    "cis",
+    "stig",
+    "nist",
+    "pci-dss",
+    "hipaa",
+    "openscap",
+    "lynis",
+    "compliance",
+    "linux"
+  ]
+}
