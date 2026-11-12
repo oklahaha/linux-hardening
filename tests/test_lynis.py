@@ -11,14 +11,15 @@ RECON = os.path.join(HERE, "..", "skills", "linux-hardening", "scripts", "recon.
 LYNIS_STUB = r"""#!/bin/sh
 pwd > "$D/lynis-cwd"
 while [ $# -gt 0 ]; do case $1 in --report-file) r=$2;; --logfile) l=$2;; esac; shift; done
-printf 'hardening_index=70\ntests_executed=%s\n' "$RAN" > "$r"; : > "$l"
+case " $* " in *" --tests "*) echo "--tests used" > "$D/tests-arg";; esac
+printf 'hardening_index=70\ntests_executed=%s\n%s' "$RAN" "$FINDINGS" > "$r"; : > "$l"
 [ -n "$CRASH" ] && exit 1   # died mid-audit: header written, no finish marker
 echo finish=true >> "$r"
 """
 
 
 class LynisTest(unittest.TestCase):
-    def run_lynis(self, d, ran, *args, crash=""):
+    def run_lynis(self, d, ran, *args, crash="", findings=""):
         bin_dir, caller = os.path.join(d, "bin"), os.path.join(d, "caller")
         os.makedirs(bin_dir)
         os.makedirs(caller)
@@ -28,7 +29,7 @@ class LynisTest(unittest.TestCase):
             with open(os.path.join(bin_dir, name), "w") as f:
                 f.write(body)
             os.chmod(os.path.join(bin_dir, name), 0o755)
-        env = dict(os.environ, PATH=bin_dir + ":/usr/bin:/bin", D=d, RAN=ran, CRASH=crash,
+        env = dict(os.environ, PATH=bin_dir + ":/usr/bin:/bin", D=d, RAN=ran, CRASH=crash, FINDINGS=findings,
                    HARDENING_REPORTS=os.path.join(d, "reports"))
         return subprocess.run(["bash", LYNIS, *args], cwd=caller, env=env, capture_output=True, text=True)
 
@@ -55,6 +56,20 @@ class LynisTest(unittest.TestCase):
             r = self.run_lynis(d, "PKGS-7370|SSH-74080", "--test", "SSH-7408")
             self.assertEqual(r.returncode, 70)
             self.assertIn("did not run SSH-7408", r.stderr)
+
+    def test_recheck_runs_full_audit_and_shows_only_that_test(self):
+        # Found on Ubuntu 24.04: --tests SSH-7408 alone skips it, because its prerequisite SSH-7402 never runs.
+        f = ("suggestion[]=SSH-7408|Consider hardening SSH configuration|AllowTcpForwarding (set YES to NO)|-|\n"
+             "suggestion[]=PKGS-7370|Install debsums|-|-|\n")
+        with tempfile.TemporaryDirectory() as d:
+            r = self.run_lynis(d, "SSH-7402|SSH-7408|PKGS-7370", "--test", "SSH-7408", findings=f)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertFalse(os.path.exists(os.path.join(d, "tests-arg")))
+            self.assertIn("SSH-7408 | RISKY | Consider hardening SSH configuration | AllowTcpForwarding", r.stdout)
+            self.assertNotIn("PKGS-7370", r.stdout)
+        with tempfile.TemporaryDirectory() as d:
+            r = self.run_lynis(d, "SSH-7408", "--test", "SSH-7408")
+            self.assertIn("SSH-7408: ran, no warnings or suggestions left", r.stdout)
 
 
 class ReconTest(unittest.TestCase):

@@ -60,7 +60,7 @@ What the rollback (`scripts/arm-rollback.sh`, fires after 10 minutes) restores:
 - the ssh and firewall services that were running, restarted even if the fix stopped them; the ones that were not running are stopped
 - the live firewall rules exactly as they were: nftables, iptables-nft, and legacy iptables v4/v6
 
-It ends with `ROLLBACK INCOMPLETE, failed: …` if any part fails. Then show the user `journalctl -u hardening-rollback` and fix it from the root shell.
+It ends with `ROLLBACK INCOMPLETE, failed: …` if any part fails. Then show the user `sudo journalctl -u hardening-rollback` and fix it from the root shell.
 
 ## Recovery
 
@@ -92,6 +92,6 @@ Lynis gives suggestions, not fix scripts. To fix one:
 - Get the yes.
 - Back up the files it touches (`sudo cp -a <file> <file>.bak-$(date +%s)`).
 
-Lynis tests marked RISKY (AUTH, SSH, FIRE, NETW, BOOT, ACCT) follow the guarded procedure. Verify with `bash scripts/lynis.sh --test <TEST-ID>`. It fails (exit 70) if Lynis did not actually run that test, for example because a profile skips it. A missing test is never a pass.
+Lynis tests marked RISKY (AUTH, SSH, FIRE, NETW, BOOT, ACCT) follow the guarded procedure. Verify with `bash scripts/lynis.sh --test <TEST-ID>`: it runs the full audit (tests depend on earlier ones) and prints only that test's remaining findings. It fails (exit 70) if Lynis did not actually run that test, for example because a profile skips it. A missing test is never a pass.
 
 `lynis.sh` runs Lynis from a root-owned empty directory, so a `custom.prf` or `include/` in the caller's directory cannot change or skip tests. Profiles are read only from Lynis's system locations (`/etc/lynis`).

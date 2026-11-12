@@ -61,6 +61,12 @@ class SummaryTest(unittest.TestCase):
             self.assertTrue(summary.risky(rule), rule)
         self.assertFalse(summary.risky("banner_etc_issue"))
 
+    def test_user_and_log_shipping_rules_are_risky(self):
+        # Found on Ubuntu 24.04 CIS L1: these had no flag and landed in quick wins.
+        for rule in ("file_cron_allow_exists", "file_at_allow_exists",
+                     "systemd_journal_upload_url", "systemd_journal_upload_server_tls"):
+            self.assertTrue(summary.risky(rule), rule)
+
     def test_login_dependencies_are_risky_and_removals_need_dep_check(self):
         for rule in ("service_autofs_disabled", "package_nis_removed", "service_sssd_disabled"):
             self.assertTrue(summary.risky(rule), rule)

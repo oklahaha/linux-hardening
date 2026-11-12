@@ -129,7 +129,7 @@ Then, one rule at a time:
    - Anything else: `sudo bash <file>`.
 3. **Validate and verify.**
    - `sshd -t` / `visudo -c` where relevant.
-   - Re-check: `bash scripts/scan.sh <profile> --rule <rule>` must print `Result pass`. For Lynis: `bash scripts/lynis.sh --test <TEST-ID>`.
+   - Re-check: `bash scripts/scan.sh <profile> --rule <rule>` must print `Result pass`. For Lynis: `bash scripts/lynis.sh --test <TEST-ID>` (a full audit, about a minute) must no longer list the finding you fixed. One test id can carry several findings (SSH-7408 lists one per sshd option), so check the line, not the id.
    - For guarded rules: the fresh-login test, then cancel the rollback.
 4. **On failure**, report the error. For a guarded rule, roll it back. Then continue with the next rule. Stop the whole session only if a lockout check fails.
 
@@ -137,7 +137,7 @@ Never batch RISKY rules. Never touch grub passwords, partitions, or `auditd` hal
 
 ## 7. Health check and rescan
 
-Run `bash scripts/recon.sh` again and compare its "Listening ports" and "Running services" with the first run. PIDs change on restart, so match ports and service names, not lines. Anything that was there before and is gone counts as broken by a fix. Report it first, find which rule caused it, and offer to undo that rule (see "Recovery" in `references/safety.md`).
+Run `bash scripts/recon.sh` again and compare its "Listening ports" and "Running services" with the first run. PIDs change on restart, so match ports and service names, not lines. Anything that was there before and is gone counts as broken by a fix, unless it stops by itself when idle (packagekit, fwupd, udisks2): check `systemctl status <unit>` before blaming a rule. Report it first, find which rule caused it, and offer to undo that rule (see "Recovery" in `references/safety.md`).
 
 Then run the same scan again. Show:
 - the score before and after

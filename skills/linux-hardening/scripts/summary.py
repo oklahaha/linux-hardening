@@ -17,7 +17,9 @@ RISKY = ("sshd", "pam", "faillock", "account", "password", "firewall", "ufw",
          "nftables", "iptables", "sudo", "grub", "mount", "partition",
          "auditd", "sysctl_net", "apparmor", "wireless", "network",
          # identity and home-directory services: disabling or removing them can stop logins
-         "autofs", "nis", "ypbind", "sssd", "nslcd", "ldap", "nfs", "rpcbind", "krb5", "kerberos", "winbind", "samba")
+         "autofs", "nis", "ypbind", "sssd", "nslcd", "ldap", "nfs", "rpcbind", "krb5", "kerberos", "winbind", "samba",
+         # cron/at allow-lists shut non-root users out; journal upload ships logs off the box
+         "cron_allow", "at_allow", "journal_upload")
 # Disabling a service, removing a package or blacklisting a module is safe only if nothing here uses it.
 CHECK_DEPS = (("service_", "_disabled"), ("package_", "_removed"), ("kernel_module_", "_disabled"))
 # Lynis test groups that touch logins, SSH, firewall, networking, boot or accounts.

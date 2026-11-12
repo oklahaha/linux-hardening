@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run a Lynis audit and summarise it.
 # Usage: lynis.sh                   full audit -> hardening-reports/<timestamp>-lynis/{report.dat,lynis.log,lynis.out} + summary
-#        lynis.sh --test <TEST-ID>  re-run one test (e.g. SSH-7408) after a fix
+#        lynis.sh --test <TEST-ID>  after a fix: full audit, then only that test's remaining findings
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT_ROOT=${HARDENING_REPORTS:-$PWD/hardening-reports}
@@ -20,10 +20,12 @@ mkdir -m 700 "$out"
 # Root writes only into a dir root created; the user's shell copies the reports out, so no privileged write goes through $out.
 priv=$(sudo mktemp -d)
 trap 'sudo rm -rf "$priv"' EXIT
-echo "Running Lynis${test:+ test $test} (a full audit takes a few minutes)..." >&2
+# Always a full audit: tests depend on earlier ones (SSH-7408 is skipped unless SSH-7402 finds sshd),
+# so --tests <id> alone silently skips the test you want to verify.
+echo "Running Lynis (a full audit takes a few minutes)..." >&2
 # Run from root's empty private dir: Lynis reads custom.prf and ./include from its working directory,
 # so the caller's directory must not be able to skip or replace tests.
-sudo sh -c 'cd "$1" && shift && exec lynis "$@"' sh "$priv" audit system --quick --no-colors ${test:+--tests "$test"} \
+sudo sh -c 'cd "$1" && shift && exec lynis "$@"' sh "$priv" audit system --quick --no-colors \
   --report-file "$priv/report.dat" --logfile "$priv/lynis.log" > "$out/lynis.out" 2>&1 && rc=0 || rc=$?
 sudo test -s "$priv/report.dat" || { echo "Lynis wrote no report (exit $rc); see $out/lynis.out" >&2; exit 70; }
 # Copy whatever exists, even a partial report, so a failure can be diagnosed.
@@ -41,4 +43,9 @@ if [ -n "$test" ] && ! grep -qE "^tests_executed=(.*\|)?$test(\||$)" "$out/repor
 fi
 
 echo "Report dir: $out"
-python3 -I "$HERE/summary.py" --lynis "$out/report.dat"
+if [ -n "$test" ]; then
+  left=$(python3 -I "$HERE/summary.py" --lynis "$out/report.dat" | grep -E "^$test \|" || true)
+  echo "${left:-$test: ran, no warnings or suggestions left}"
+else
+  python3 -I "$HERE/summary.py" --lynis "$out/report.dat"
+fi
