@@ -48,7 +48,7 @@ Package removal is not undone by the rollback. The plan you show must include th
    ```bash
    sudo bash scripts/arm-rollback.sh && systemctl is-active --quiet hardening-rollback.timer && sudo timeout 120 bash <fix-file>
    ```
-   The fix runs only while the rollback is armed, and is killed if it runs past 2 minutes. If arming prints `refusing to arm`, the firewall rules could not be saved in a reloadable form. Do not apply the rule.
+   The fix runs only while the rollback is armed, and is killed if it runs past 2 minutes. If arming prints `refusing to arm`, either the firewall rules could not be saved in a reloadable form, or `sshd -t` fails on the current config (the rollback would restore a broken sshd). Do not apply the rule; fix the cause first.
 5. Validate:
    - `sudo visudo -c` if sudo changed.
    - `sudo sshd -t`, then `sudo systemctl reload ssh` (Debian/Ubuntu) or `sshd` (others), if sshd changed.
@@ -56,11 +56,14 @@ Package removal is not undone by the rollback. The plan you show must include th
 7. All good: `sudo systemctl stop hardening-rollback.timer`. Anything wrong: do not cancel. Run `sudo systemctl start hardening-rollback.service`, from the root shell if sudo is broken, or let the timer fire.
 
 What the rollback (`scripts/arm-rollback.sh`, fires after 10 minutes) restores:
-- /etc as it was, with files the fix created deleted
-- the ssh and firewall services that were running, restarted even if the fix stopped them; the ones that were not running are stopped
-- the live firewall rules exactly as they were: nftables, iptables-nft, and legacy iptables v4/v6
+- /etc as it was. Files created since arming are moved to `/root/hardening-rollback.removed-<time>/`, not deleted: a package may have added them during the window. Nothing is removed recursively, so a filesystem mounted under /etc is never touched.
+- pam_faillock tallies as they were, so failed logins during the window do not keep anyone locked out
+- the ssh and firewall services that were running, restarted even if the fix stopped them (ssh is restarted, not reloaded, so restored unit files apply); the ones that were not running are stopped
+- ipset members, then the live firewall rules exactly as they were: nftables, iptables-nft, and legacy iptables v4/v6 (legacy tables loaded since arming are emptied)
 
-It ends with `ROLLBACK INCOMPLETE, failed: …` if any part fails. Then show the user `sudo journalctl -u hardening-rollback` and fix it from the root shell.
+It stops its own timer first, so starting it by hand never leads to a second run later.
+
+One failing step does not stop the others. It ends with `ROLLBACK INCOMPLETE, failed: …` if any part fails. Then show the user `sudo journalctl -u hardening-rollback` and fix it from the root shell.
 
 ## Recovery
 
