@@ -44,7 +44,9 @@ fi
 
 echo "Report dir: $out"
 if [ -n "$test" ]; then
-  left=$(python3 -I "$HERE/summary.py" --lynis "$out/report.dat" | grep -E "^$test \|" || true)
+  # Fail closed: a summary error must never read as "nothing left"; only grep's no-match (1) means clean.
+  summary=$(python3 -I "$HERE/summary.py" --lynis "$out/report.dat")
+  left=$(grep -E "^$test \|" <<<"$summary") || [ $? -eq 1 ]
   echo "${left:-$test: ran, no warnings or suggestions left}"
 else
   python3 -I "$HERE/summary.py" --lynis "$out/report.dat"

@@ -19,13 +19,16 @@ echo finish=true >> "$r"
 
 
 class LynisTest(unittest.TestCase):
-    def run_lynis(self, d, ran, *args, crash="", findings=""):
+    def run_lynis(self, d, ran, *args, crash="", findings="", broken_python=False):
         bin_dir, caller = os.path.join(d, "bin"), os.path.join(d, "caller")
         os.makedirs(bin_dir)
         os.makedirs(caller)
         with open(os.path.join(caller, "custom.prf"), "w") as f:
             f.write("skip-test=SSH-7408\n")  # planted profile in the caller's directory
-        for name, body in (("sudo", '#!/bin/sh\nexec "$@"\n'), ("lynis", LYNIS_STUB)):
+        stubs = [("sudo", '#!/bin/sh\nexec "$@"\n'), ("lynis", LYNIS_STUB)]
+        if broken_python:
+            stubs.append(("python3", "#!/bin/sh\necho boom >&2; exit 1\n"))
+        for name, body in stubs:
             with open(os.path.join(bin_dir, name), "w") as f:
                 f.write(body)
             os.chmod(os.path.join(bin_dir, name), 0o755)
@@ -70,6 +73,12 @@ class LynisTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             r = self.run_lynis(d, "SSH-7408", "--test", "SSH-7408")
             self.assertIn("SSH-7408: ran, no warnings or suggestions left", r.stdout)
+
+    def test_recheck_fails_closed_when_summary_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = self.run_lynis(d, "SSH-7408", "--test", "SSH-7408", broken_python=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertNotIn("no warnings or suggestions left", r.stdout)
 
 
 class ReconTest(unittest.TestCase):
